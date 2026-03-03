@@ -81,7 +81,6 @@ Browse the `skills/` folder for the full list.
 
 ## Resources
 
-- [Membrane](https://getmembrane.com) — Full documentation
-- [Membrane Console](https://console.getmembrane.com) — Manage workspaces, connections, and API tokens
+- [Membrane](https://getmembrane.com) — Integrations API for AI Agents
 
 ---
