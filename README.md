@@ -72,7 +72,6 @@ Install by **skill name** = folder name (e.g. `gmail`, `slack`, `hubspot`).
 | GitHub | `github` |
 | Jira | `jira` |
 | Google Drive | `google-drive` |
-| Microsoft Excel | `microsoft-excel` |
 | Dropbox | `dropbox` |
 | Pipedrive | `pipedrive` |
 
@@ -82,13 +81,7 @@ Browse the `skills/` folder for the full list.
 
 ## Resources
 
+- [Membrane](https://getmembrane.com) — Full documentation
 - [Membrane Console](https://console.getmembrane.com) — Manage workspaces, connections, and API tokens
-- [Membrane Docs](https://getmembrane.com) — Full documentation
-- [Agent Skills Spec](https://agentskills.io/) — Open specification these skills are built on
-- [OpenClaw Skills](https://docs.openclaw.ai/skills) — Use these skills with OpenClaw; install via [ClawHub](https://learnopenclaw.com/core-concepts/skills) or the Agent Skills CLI
 
 ---
-
-## License
-
-MIT
