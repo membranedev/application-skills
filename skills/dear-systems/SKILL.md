@@ -4,6 +4,8 @@ description: |
   DEAR Systems integration. Manage Organizations, Projects, Users, Goals, Filters. Use when the user wants to interact with DEAR Systems data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

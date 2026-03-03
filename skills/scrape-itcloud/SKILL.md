@@ -4,6 +4,8 @@ description: |
   Scrape-It.Cloud integration. Manage Projects, Users, Organizations. Use when the user wants to interact with Scrape-It.Cloud data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

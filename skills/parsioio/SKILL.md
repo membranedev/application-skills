@@ -4,6 +4,8 @@ description: |
   Parsio.io integration. Manage Documents, Parsers, Inboxs, Templates, Folders, Users. Use when the user wants to interact with Parsio.io data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

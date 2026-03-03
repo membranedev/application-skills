@@ -4,6 +4,8 @@ description: |
   Customer Fields integration. Manage Organizations, Leads, Pipelines, Users, Goals, Filters. Use when the user wants to interact with Customer Fields data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

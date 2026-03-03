@@ -4,6 +4,8 @@ description: |
   Zoho Mail integration. Manage Mailboxs, Contacts, Tags, Tasks, Notes, Calendars. Use when the user wants to interact with Zoho Mail data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

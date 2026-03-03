@@ -4,6 +4,8 @@ description: |
   Route4Me integration. Manage Users, Addresses, Routes, Territories, Geofences, Contacts. Use when the user wants to interact with Route4Me data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

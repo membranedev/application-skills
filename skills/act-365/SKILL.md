@@ -4,6 +4,8 @@ description: |
   Act! 365 integration. Manage Contacts, Groups, Opportunities, Tasks, Users. Use when the user wants to interact with Act! 365 data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

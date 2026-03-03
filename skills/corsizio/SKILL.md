@@ -4,6 +4,8 @@ description: |
   Corsizio integration. Manage Courses, Events, Participants, Instructors, Locations, Coupons and more. Use when the user wants to interact with Corsizio data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

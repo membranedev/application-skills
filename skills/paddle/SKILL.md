@@ -4,6 +4,8 @@ description: |
   Paddle integration. Manage Deals, Persons, Organizations, Leads, Projects, Pipelines and more. Use when the user wants to interact with Paddle data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

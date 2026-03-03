@@ -4,6 +4,8 @@ description: |
   ADP Workforce Now integration. Manage Persons, Organizations, Jobs, Payrolls, Benefitses, Talents. Use when the user wants to interact with ADP Workforce Now data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"

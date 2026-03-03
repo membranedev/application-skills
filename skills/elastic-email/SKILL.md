@@ -4,6 +4,8 @@ description: |
   Elastic Email integration. Manage Users, Contacts, Campaigns, Automations, Suppressions, Domains and more. Use when the user wants to interact with Elastic Email data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
+homepage: https://getmembrane.com
+repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"
