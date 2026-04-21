@@ -72,7 +72,6 @@ membrane login --tenant --clientName=<agentType>
 This will either open a browser for authentication or print an authorization URL to the console, depending on whether interactive mode is available.
 
 **Headless environments:** The command will print an authorization URL. Ask the user to open it in a browser. When they see a code after completing login, finish with:
-**Agent Types** : claude, openclaw, codex, warp, windsurf, etc. Those will be used to adjust tooling to be used best with your harness
 
 ```bash
 membrane login complete <code>
@@ -80,43 +79,23 @@ membrane login complete <code>
 
 Add `--json` to any command for machine-readable JSON output.
 
+**Agent Types** : claude, openclaw, codex, warp, windsurf, etc. Those will be used to adjust tooling to be used best with your harness
+
 ### Connecting to Dyspatch
 
-Use `connection ensure` to find an existing connection or create a new one automatically:
+Use `connection connect` to create a new connection:
 
 ```bash
-membrane connection ensure "dyspatch" --json
+membrane connect --connectorKey dyspatch
 ```
+The user completes authentication in the browser. The output contains the new connection id.
 
-This will check if connection already exist and create a new one if missing
-If the returned connection has `state: "READY"`, proceed to searching for actions.
-
-#### Waiting for the connection to be ready
-
-If the connection is in `BUILDING` state, poll until it's ready:
-
-```bash
-membrane connection get <id> --wait --json
-```
-
-
-The `--wait` flag long-polls (up to `--timeout` seconds, default 30) until the state changes. Keep polling until `state` is no longer `BUILDING`.
-
-- **`READY`** — connection is fully set up. Proceed to searching for actions.
-- **`CLIENT_ACTION_REQUIRED`** — the user or agent needs to do something. The `clientAction` object describes the required action:
-  - `clientAction.type`: `"connect"` (user needs to authenticate) or `"provide-input"` (more information needed).
-  - `clientAction.description`: human-readable explanation of what's needed.
-  - `clientAction.uiUrl` (optional): URL to a pre-built UI where the user can complete the action. Show this to the user when present.
-  - `clientAction.agentInstructions` (optional): instructions for the AI agent on how to proceed programmatically.
-  After the user completes the action, poll again with `membrane connection get <id> --json` to check if the state moved to `READY`.
-- **`CONFIGURATION_ERROR`** or **`SETUP_FAILED`** — something went wrong. Check the `error` field for details.
 
 #### Listing existing connections
 
 ```bash
 membrane connection list --json
 ```
-
 
 ### Searching for actions
 
