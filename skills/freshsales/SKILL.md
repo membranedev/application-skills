@@ -1,7 +1,7 @@
 ---
 name: freshsales
 description: |
-  Freshsales integration. Manage crm and sales data, records, and workflows. Use when the user wants to interact with Freshsales data.
+  Freshsales (Clone) integration. Manage crm and sales data, records, and workflows. Use when the user wants to interact with Freshsales (Clone) data.
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
 homepage: https://getmembrane.com
@@ -9,16 +9,16 @@ repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
   version: "1.0"
-  categories: "CRM, Sales"
+  categories: ""
 ---
 
-# Freshsales
+# Freshsales (Clone)
 
 Freshsales is a CRM and sales automation platform that helps businesses manage leads, contacts, and deals. Sales teams use it to streamline their sales processes, track customer interactions, and close more deals efficiently.
 
 Official docs: https://developers.freshsales.io/
 
-## Freshsales Overview
+## Freshsales (Clone) Overview
 
 - **Account**
 - **Contact**
@@ -1610,58 +1610,85 @@ Official docs: https://developers.freshsales.io/
 - **Result**
 - **Outcome**
 
-## Working with Freshsales
+## Working with Freshsales (Clone)
 
-This skill uses the Membrane CLI to interact with Freshsales. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
+This skill uses the Membrane CLI to interact with Freshsales (Clone). Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
 
 ### Install the CLI
 
 Install the Membrane CLI so you can run `membrane` from the terminal:
 
 ```bash
-npm install -g @membranehq/cli
+npm install -g @membranehq/cli@latest
 ```
 
-### First-time setup
+### Authentication
 
 ```bash
-membrane login --tenant
+membrane login --tenant --clientName=<agentType>
 ```
 
-A browser window opens for authentication.
 
-**Headless environments:** Run the command, copy the printed URL for the user to open in a browser, then complete with `membrane login complete <code>`.
+This will either open a browser for authentication or print an authorization URL to the console, depending on whether interactive mode is available.
 
-### Connecting to Freshsales
+**Headless environments:** The command will print an authorization URL. Ask the user to open it in a browser. When they see a code after completing login, finish with:
+**Agent Types** : claude, openclaw, codex, warp, windsurf, etc. Those will be used to adjust tooling to be used best with your harness
 
-1. **Create a new connection:**
-   ```bash
-   membrane search freshsales --elementType=connector --json
-   ```
-   Take the connector ID from `output.items[0].element?.id`, then:
-   ```bash
-   membrane connect --connectorId=CONNECTOR_ID --json
-   ```
-   The user completes authentication in the browser. The output contains the new connection id.
+```bash
+membrane login complete <code>
+```
 
-### Getting list of existing connections
-When you are not sure if connection already exists:
-1. **Check existing connections:**
-   ```bash
-   membrane connection list --json
-   ```
-   If a Freshsales connection exists, note its `connectionId`
+Add `--json` to any command for machine-readable JSON output.
+
+### Connecting to Freshsales (Clone)
+
+Use `connection ensure` to find an existing connection or create a new one automatically:
+
+```bash
+membrane connection ensure "freshsales" --json
+```
+
+This will check if connection already exist and create a new one if missing
+If the returned connection has `state: "READY"`, proceed to searching for actions.
+
+#### Waiting for the connection to be ready
+
+If the connection is in `BUILDING` state, poll until it's ready:
+
+```bash
+membrane connection get <id> --wait --json
+```
+
+
+The `--wait` flag long-polls (up to `--timeout` seconds, default 30) until the state changes. Keep polling until `state` is no longer `BUILDING`.
+
+- **`READY`** — connection is fully set up. Proceed to searching for actions.
+- **`CLIENT_ACTION_REQUIRED`** — the user or agent needs to do something. The `clientAction` object describes the required action:
+  - `clientAction.type`: `"connect"` (user needs to authenticate) or `"provide-input"` (more information needed).
+  - `clientAction.description`: human-readable explanation of what's needed.
+  - `clientAction.uiUrl` (optional): URL to a pre-built UI where the user can complete the action. Show this to the user when present.
+  - `clientAction.agentInstructions` (optional): instructions for the AI agent on how to proceed programmatically.
+  After the user completes the action, poll again with `membrane connection get <id> --json` to check if the state moved to `READY`.
+- **`CONFIGURATION_ERROR`** or **`SETUP_FAILED`** — something went wrong. Check the `error` field for details.
+
+#### Listing existing connections
+
+```bash
+membrane connection list --json
+```
 
 
 ### Searching for actions
 
-When you know what you want to do but not the exact action ID:
+Search using a natural language description of what you want to do:
 
 ```bash
-membrane action list --intent=QUERY --connectionId=CONNECTION_ID --json
+membrane action list --connectionId=CONNECTION_ID --intent "QUERY" --limit 10 --json
 ```
-This will return action objects with id and inputSchema in it, so you will know how to run it.
 
+You should always search for actions in the context of a specific connection.
+
+Each result includes `id`, `name`, `description`, `inputSchema` (what parameters the action accepts), and `outputSchema` (what it returns).
 
 ## Popular actions
 
@@ -1688,38 +1715,38 @@ This will return action objects with id and inputSchema in it, so you will know 
 | Delete Account | delete-account | Delete a sales account from Freshsales |
 | Delete Contact | delete-contact | Delete a contact from Freshsales |
 
+### Creating an action (if none exists)
+
+If no suitable action exists, describe what you want — Membrane will build it automatically:
+
+```bash
+membrane action create "DESCRIPTION" --connectionId=CONNECTION_ID --json
+```
+
+The action starts in `BUILDING` state. Poll until it's ready:
+
+```bash
+membrane action get <id> --wait --json
+```
+
+The `--wait` flag long-polls (up to `--timeout` seconds, default 30) until the state changes. Keep polling until `state` is no longer `BUILDING`.
+
+- **`READY`** — action is fully built. Proceed to running it.
+- **`CONFIGURATION_ERROR`** or **`SETUP_FAILED`** — something went wrong. Check the `error` field for details.
+
 ### Running actions
 
 ```bash
-membrane action run --connectionId=CONNECTION_ID ACTION_ID --json
+membrane action run <actionId> --connectionId=CONNECTION_ID --json
 ```
 
 To pass JSON parameters:
 
 ```bash
-membrane action run --connectionId=CONNECTION_ID ACTION_ID --json --input "{ \"key\": \"value\" }"
+membrane action run <actionId> --connectionId=CONNECTION_ID --input '{"key": "value"}' --json
 ```
 
-
-### Proxy requests
-
-When the available actions don't cover your use case, you can send requests directly to the Freshsales API through Membrane's proxy. Membrane automatically appends the base URL to the path you provide and injects the correct authentication headers — including transparent credential refresh if they expire.
-
-```bash
-membrane request CONNECTION_ID /path/to/endpoint
-```
-
-Common options:
-
-| Flag | Description |
-|------|-------------|
-| `-X, --method` | HTTP method (GET, POST, PUT, PATCH, DELETE). Defaults to GET |
-| `-H, --header` | Add a request header (repeatable), e.g. `-H "Accept: application/json"` |
-| `-d, --data` | Request body (string) |
-| `--json` | Shorthand to send a JSON body and set `Content-Type: application/json` |
-| `--rawData` | Send the body as-is without any processing |
-| `--query` | Query-string parameter (repeatable), e.g. `--query "limit=10"` |
-| `--pathParam` | Path parameter (repeatable), e.g. `--pathParam "id=123"` |
+The result is in the `output` field of the response.
 
 ## Best practices
 
