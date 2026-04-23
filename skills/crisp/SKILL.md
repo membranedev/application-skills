@@ -1,7 +1,6 @@
 ---
 name: crisp
-description: |
-  Crisp integration. Manage Persons, Organizations, Conversations, Users. Use when the user wants to interact with Crisp data.
+description: "Crisp integration. Create, update, search, and delete conversations, people profiles, and operators via the Membrane CLI. Use when the user mentions Crisp, customer support chat, live chat, Crisp conversations, Crisp contacts, or CRM messaging."
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
 homepage: https://getmembrane.com
@@ -14,17 +13,15 @@ metadata:
 
 # Crisp
 
-Crisp is a customer support and engagement platform. It's used by businesses to manage live chat, email, and social media interactions with their customers, all in one place.
-
 Official docs: https://developers.crisp.chat/
 
-## Crisp Overview
+## Quick-start workflow
 
-- **Conversation**
-  - **Message**
-- **People**
-
-Use action names and parameters as needed.
+1. **Install** the Membrane CLI
+2. **Authenticate** with `membrane login`
+3. **Connect** to Crisp with `membrane connect --connectorKey crisp`
+4. **Discover actions** with `membrane action list --intent "QUERY"`
+5. **Run actions** with `membrane action run <actionId>`
 
 ## Working with Crisp
 

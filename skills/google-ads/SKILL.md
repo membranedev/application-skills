@@ -1,7 +1,6 @@
 ---
 name: google-ads
-description: |
-  Google Ads integration. Manage Campaigns, Accounts, Users, Budgets, Reports. Use when the user wants to interact with Google Ads data.
+description: "Google Ads integration. Create and pause campaigns, adjust bids, set budgets, generate performance reports, and manage ad groups via the Membrane CLI. Use when the user mentions Google Ads, AdWords, PPC, ad spend, ad performance, CPC, or Google advertising."
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
 homepage: https://getmembrane.com
@@ -14,18 +13,15 @@ metadata:
 
 # Google Ads
 
-Google Ads is an online advertising platform developed by Google where advertisers bid to display brief advertisements, service offerings, product listings, or videos to web users. It's used by businesses of all sizes to promote their products and services on Google Search, YouTube, and other websites across the internet.
-
 Official docs: https://developers.google.com/google-ads/api/docs/start
 
-## Google Ads Overview
+## Quick-start workflow
 
-- **Campaigns**
-  - **Ad Groups**
-    - **Ads**
-- **Ad Recommendations**
-
-Use action names and parameters as needed.
+1. **Install** the Membrane CLI
+2. **Authenticate** with `membrane login`
+3. **Connect** to Google Ads with `membrane connect --connectorKey google-ads`
+4. **Discover actions** with `membrane action list --intent "QUERY"`
+5. **Run actions** with `membrane action run <actionId>`
 
 ## Working with Google Ads
 

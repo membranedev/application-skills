@@ -1,7 +1,6 @@
 ---
 name: outscraper
-description: |
-  Outscraper integration. Manage Organizations. Use when the user wants to interact with Outscraper data.
+description: "Outscraper integration. Scrape Google Maps business listings, extract reviews, collect contact information, verify emails and phones, and gather lead data via the Membrane CLI. Use when the user mentions Outscraper, web scraping, Google Maps data, business listings, review extraction, lead generation, or SERP scraping."
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
 homepage: https://getmembrane.com
@@ -14,157 +13,24 @@ metadata:
 
 # Outscraper
 
-Outscraper provides data scraping APIs for search engines, social media, and e-commerce websites. Developers and data scientists use it to extract large-scale public data for market research, lead generation, and competitive analysis. It helps automate data collection from the web.
-
 Official docs: https://outscraper.com/documentation
 
-## Outscraper Overview
+## Quick-start workflow
 
-- **Google Search Results**
-  - **SERP Data**
-- **Google Maps Results**
-  - **Place Details**
-  - **Reviews**
-- **Google Play Results**
-  - **App Details**
-  - **Reviews**
-- **App Store Results**
-  - **App Details**
-  - **Reviews**
-- **Amazon Product Results**
-  - **Product Details**
-  - **Reviews**
-- **Amazon Best Sellers Results**
-- **Amazon Search Suggestions**
-- **YouTube Results**
-  - **Video Details**
-  - **Comments**
-- **Twitter Results**
-  - **Tweet Details**
-- **LinkedIn Results**
-  - **Profile Details**
-- **Instagram Results**
-  - **Profile Details**
-- **TikTok Results**
-  - **Video Details**
-- **Walmart Results**
-  - **Product Details**
-- **Whois Results**
-- **Proxy**
-- **Realtime Location**
-- **Email Verification**
-- **Phone Number Verification**
-- **Scrape Website Data**
-- **Scrape Text Data**
-- **Parse Website Data**
-- **Parse Text Data**
-- **Summarize Text**
-- **Translate Text**
-- **Extract Contact Details**
-- **Extract Emails From URL**
-- **Extract Phone Numbers From URL**
-- **Extract Social Media From URL**
-- **Extract Locations From URL**
-- **Extract Data From PDF**
-- **Convert HTML to Markdown**
-- **Check Website Status**
-- **Find Similar Websites**
-- **Find Alternative Websites**
-- **Find Websites Using Technology**
-- **Find Websites Using Keywords**
-- **Find People By Skills**
-- **Find People By Email**
-- **Find People By Name**
-- **Find Company By Name**
-- **Find Company By Domain**
-- **Find Company By LinkedIn URL**
-- **Find Company By Facebook URL**
-- **Find Company By Twitter URL**
-- **Find Company By Instagram URL**
-- **Find Company By Crunchbase URL**
-- **Find Company By Location**
-- **Find Company By Industry**
-- **Find Company By Keywords**
-- **Find Company By Funding**
-- **Find Company Employee Count**
-- **Find Company Revenue**
-- **Find Company Founded Year**
-- **Find Company Headquarters**
-- **Find Company Description**
-- **Find Company Website**
-- **Find Company Email Address**
-- **Find Company Phone Number**
-- **Find Company Social Media Links**
-- **Find Company Similar Companies**
-- **Find Company Alternative Companies**
-- **Find Company Technologies Used**
-- **Find Company Job Openings**
-- **Find Company News**
-- **Find Company Events**
-- **Find Company Blog**
-- **Find Company Leadership**
-- **Find Company Investors**
-- **Find Company Acquisitions**
-- **Find Company Exits**
-- **Find Company Patents**
-- **Find Company Trademarks**
-- **Find Company Awards**
-- **Find Company Associations**
-- **Find Company Memberships**
-- **Find Company Customers**
-- **Find Company Suppliers**
-- **Find Company Partners**
-- **Find Company Competitors**
-- **Find Company Financials**
-- **Find Company Filings**
-- **Find Company Legal Disputes**
-- **Find Company Compliance**
-- **Find Company Risk Assessment**
-- **Find Company Sustainability**
-- **Find Company Diversity**
-- **Find Company Ethics**
-- **Find Company Social Responsibility**
-- **Find Company Governance**
-- **Find Company Innovation**
-- **Find Company Research and Development**
-- **Find Company Product Development**
-- **Find Company Marketing**
-- **Find Company Sales**
-- **Find Company Customer Service**
-- **Find Company Operations**
-- **Find Company Human Resources**
-- **Find Company Information Technology**
-- **Find Company Finance**
-- **Find Company Legal**
-- **Find Company Real Estate**
-- **Find Company Supply Chain**
-- **Find Company Manufacturing**
-- **Find Company Distribution**
-- **Find Company Logistics**
-- **Find Company Quality Control**
-- **Find Company Security**
-- **Find Company Health and Safety**
-- **Find Company Environmental Management**
-- **Find Company Crisis Management**
-- **Find Company Business Continuity**
-- **Find Company Disaster Recovery**
-- **Find Company Data Protection**
-- **Find Company Privacy**
-- **Find Company Intellectual Property**
-- **Find Company Licensing**
-- **Find Company Franchising**
-- **Find Company Mergers and Acquisitions**
-- **Find Company Joint Ventures**
-- **Find Company Strategic Alliances**
-- **Find Company Partnerships**
-- **Find Company Investments**
-- **Find Company Divestitures**
-- **Find Company Restructuring**
-- **Find Company Bankruptcy**
-- **Find Company Liquidation**
-- **Find Company Dissolution**
+1. **Install** the Membrane CLI
+2. **Authenticate** with `membrane login`
+3. **Connect** to Outscraper with `membrane connect --connectorKey outscraper`
+4. **Discover actions** with `membrane action list --intent "QUERY"`
+5. **Run actions** with `membrane action run <actionId>`
 
-Use action names and parameters as needed.
+## Key capabilities
+
+- **Search & SERP**: Google Search results, Google Maps places and reviews
+- **Social & Reviews**: YouTube, Amazon, App Store, Google Play reviews and details
+- **Lead generation**: Email/phone verification, contact extraction, company lookups
+- **Web data**: Website scraping, HTML-to-Markdown, PDF extraction
+
+Use `membrane action list --intent "QUERY"` to discover the full range of available actions.
 
 ## Working with Outscraper
 

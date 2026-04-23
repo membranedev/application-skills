@@ -1,7 +1,6 @@
 ---
 name: microsoft-teams
-description: |
-  Microsoft Teams integration. Manage communication data, records, and workflows. Use when the user wants to interact with Microsoft Teams data.
+description: "Microsoft Teams integration. Send and read messages, create channels, list team members, manage chats, and schedule meetings via the Membrane CLI. Use when the user mentions Microsoft Teams, Teams messages, Teams channels, team chat, or posting to Teams."
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
 homepage: https://getmembrane.com
@@ -14,18 +13,15 @@ metadata:
 
 # Microsoft Teams
 
-Microsoft Teams is a unified communication and collaboration platform. It's used by businesses of all sizes to facilitate teamwork through chat, video meetings, file sharing, and application integration.
-
 Official docs: https://learn.microsoft.com/en-us/microsoftteams/platform/
 
-## Microsoft Teams Overview
+## Quick-start workflow
 
-- **Chat**
-  - **Message**
-- **Team**
-  - **Channel**
-    - **Message**
-- **Meeting**
+1. **Install** the Membrane CLI
+2. **Authenticate** with `membrane login`
+3. **Connect** to Microsoft Teams with `membrane connect --connectorKey microsoft-teams`
+4. **Discover actions** with `membrane action list --intent "QUERY"`
+5. **Run actions** with `membrane action run <actionId>`
 
 ## Working with Microsoft Teams
 
