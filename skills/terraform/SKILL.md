@@ -1,7 +1,6 @@
 ---
 name: terraform
-description: |
-  Terraform integration. Manage data, records, and automate workflows. Use when the user wants to interact with Terraform data.
+description: "Terraform integration. Manage workspaces, runs, state versions, variables, and organizations via the Membrane CLI. Use when the user mentions Terraform, infrastructure as code, IaC, HCL, Terraform Cloud, terraform plan, terraform apply, or cloud provisioning."
 compatibility: Requires network access and a valid Membrane account (Free tier supported).
 license: MIT
 homepage: https://getmembrane.com
@@ -14,18 +13,15 @@ metadata:
 
 # Terraform
 
-Terraform is an infrastructure as code (IaC) tool that allows you to define and provision infrastructure using a declarative configuration language. It's primarily used by DevOps engineers, cloud engineers, and system administrators to automate infrastructure management across various cloud providers and on-premise environments.
-
 Official docs: https://developer.hashicorp.com/terraform/
 
-## Terraform Overview
+## Quick-start workflow
 
-- **Configuration**
-  - **Module**
-- **State**
-- **Workspace**
-
-Use action names and parameters as needed.
+1. **Install** the Membrane CLI
+2. **Authenticate** with `membrane login`
+3. **Connect** to Terraform with `membrane connect --connectorKey terraform`
+4. **Discover actions** with `membrane action list --intent "QUERY"`
+5. **Run actions** with `membrane action run <actionId>`
 
 ## Working with Terraform
 
