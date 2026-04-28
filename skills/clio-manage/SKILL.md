@@ -16,7 +16,7 @@ metadata:
 
 Clio is a data management platform. Use the available actions to discover its full capabilities.
 
-
+Official docs: https://developers.clio.com/
 
 ## Clio Overview
 
@@ -124,7 +124,7 @@ The result is in the `output` field of the response.
 
 ### Proxy requests
 
-When the available actions don't cover your use case, you can send requests directly to the Airmeet API through Membrane's proxy. Membrane automatically appends the base URL to the path you provide and injects the correct authentication headers — including transparent credential refresh if they expire.
+When the available actions don't cover your use case, you can send requests directly to the Clio API through Membrane's proxy. Membrane automatically appends the base URL to the path you provide and injects the correct authentication headers — including transparent credential refresh if they expire.
 
 ```bash
 membrane request CONNECTION_ID /path/to/endpoint
