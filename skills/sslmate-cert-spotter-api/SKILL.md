@@ -6,16 +6,14 @@ compatibility: Requires network access and a valid Membrane account (Free tier s
 license: MIT
 metadata:
   author: membrane
-  version: "1.0"
+  version: "2.0"
   categories: ""
 ---
 
 # SSLMate — Cert Spotter API
-
 SSLMate's Cert Spotter API is a tool that allows developers to monitor newly issued SSL/TLS certificates. It's used by security professionals, researchers, and domain owners to detect potential phishing attacks, brand abuse, and unauthorized certificate issuance.
 
 Official docs: https://sslmate.com/certspotter/api/
-
 ## SSLMate — Cert Spotter API Overview
 
 - **Certificates**
@@ -23,94 +21,212 @@ Official docs: https://sslmate.com/certspotter/api/
 - **Domains**
   - **Domain Details**
 - **Matching Identities**
-
 ## Working with SSLMate — Cert Spotter API
 
-This skill uses the Membrane CLI (`npx @membranehq/cli@latest`) to interact with SSLMate — Cert Spotter API. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
+This skill uses the Membrane CLI to interact with SSLMate — Cert Spotter API. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
 
-### First-time setup
+**Always route through Membrane.** Don't hit SSLMate — Cert Spotter API's API directly. Use the `act` command (or the `/act` HTTP endpoint), which proxies every request through an authenticated connection.
 
-```bash
-npx @membranehq/cli@latest login --tenant
-```
+**Never handle external-app credentials yourself.** OAuth tokens, API keys, refresh tokens — Membrane stores and manages them server-side. Pass a `connectionKey` (or `connectionId`) and the tools call SSLMate — Cert Spotter API on your behalf.
 
-A browser window opens for authentication. After login, credentials are stored in `~/.membrane/credentials.json` and reused for all future commands.
-
-**Headless environments:** Run the command, copy the printed URL for the user to open in a browser, then complete with `npx @membranehq/cli@latest login complete <code>`.
-
-### Connecting to SSLMate — Cert Spotter API
-
-1. **Create a new connection:**
-   ```bash
-   npx @membranehq/cli@latest search sslmate-cert-spotter-api --elementType=connector --json
-   ```
-   Take the connector ID from `output.items[0].element?.id`, then:
-   ```bash
-   npx @membranehq/cli@latest connect --connectorId=CONNECTOR_ID --json
-   ```
-   The user completes authentication in the browser. The output contains the new connection id.
-
-### Getting list of existing connections
-When you are not sure if connection already exists:
-1. **Check existing connections:**
-   ```bash
-   npx @membranehq/cli@latest connection list --json
-   ```
-   If a SSLMate — Cert Spotter API connection exists, note its `connectionId`
-
-
-### Searching for actions
-
-When you know what you want to do but not the exact action ID:
+### Install the CLI
 
 ```bash
-npx @membranehq/cli@latest action list --intent=QUERY --connectionId=CONNECTION_ID --json
+npm install -g @membranehq/cli@latest
 ```
-This will return action objects with id and inputSchema in it, so you will know how to run it.
 
+### Authenticate
+
+```bash
+membrane login --tenant --clientName=<agentType>
+```
+
+This will either open a browser for authentication or print an authorization URL to the console, depending on whether interactive mode is available.
+
+**Headless environments:** The command will print an authorization URL. Ask the user to open it in a browser. When they see a code after completing login, finish with:
+
+```bash
+membrane login complete <code>
+```
+
+**Agent types** (passed to `--clientName`): `claude`, `openclaw`, `codex`, `warp`, `windsurf`, etc. Used to adjust tooling for your harness.
+
+Add `--json` to any command for machine-readable JSON output.
+
+## Step 1 — Get a connection to SSLMate — Cert Spotter API
+
+`connection ensure` finds an existing connection by URL/domain, or creates a new one if none matches. Use it as the default — it covers both cases in one call.
+
+```bash
+membrane connection ensure "https://sslmatecertspotterapi.com" --json
+```
+
+Read the `state` on the returned connection and branch:
+
+- **`READY`** — done. Move to Step 2.
+- **`BUILDING`** — Membrane's builder agent is working. Wait:
+
+  ```bash
+  membrane connection get <id> --wait --json
+  ```
+
+  `--wait` long-polls (up to `--timeout` seconds, default 30).
+- **`CLIENT_ACTION_REQUIRED`** — the user or agent must do something to finish setup. The `clientAction` object describes what:
+  - `clientAction.type` — `"connect"` (auth flow) or `"provide-input"` (extra fields needed).
+  - `clientAction.agentInstructions` (optional) — **follow these verbatim if present**. They tell the agent how to drive SSLMate — Cert Spotter API's side of the flow programmatically. Don't shortcut to "paste this URL" — the instructions exist because the agent is expected to handle it.
+  - `clientAction.uiUrl` (optional) — a Membrane-hosted page where the user completes the action manually. Show this only when `agentInstructions` tells you to, or when no `agentInstructions` are present.
+  - `clientAction.description` — human-readable summary.
+
+  When the action requires writing data back to the connection (e.g. captured OAuth credentials, custom params):
+
+  ```bash
+  membrane connection patch <id> --data '<json>'
+  ```
+
+  After the user completes their step, poll `connection get <id> --wait --json` until `state` changes.
+
+  **Important:** if the connection you got back is an existing one in `CLIENT_ACTION_REQUIRED` (i.e. previously disconnected), reconnect it instead of creating a new one:
+
+  ```bash
+  membrane connect --connectionId <id>
+  ```
+
+  Creating a fresh connection in this case leaves orphaned records and breaks anything that referenced the old `connectionKey`.
+
+- **`CONFIGURATION_ERROR`** / **`SETUP_FAILED`** — surface the `error` field to the user. These are terminal — don't retry blindly.
+
+To give the connection a stable, human-readable key for later lookup:
+
+```bash
+membrane connection patch <id> --data '{"connectionKey":"sslmate-cert-spotter-api"}'
+```
+
+For multi-account setups (e.g. two separate SSLMate — Cert Spotter API accounts), create the second one with `connect`:
+
+```bash
+membrane connect --integrationKey sslmate-cert-spotter-api \
+  --connectionKey sslmate-cert-spotter-api-secondary --allowMultipleConnections
+```
+
+## Step 2 — Use the connection
+
+The fastest path to a real response is `act` with an inline dispatch. **No "create action → wait → run" ceremony required.**
+
+`act` accepts exactly one of three dispatch styles:
+
+| Dispatch | When to use |
+|---|---|
+| `--api '<json>'` | **First call after a fresh connection, and any one-off HTTP request.** Membrane handles auth + base URL. |
+| `--key <key>` | You've previously saved this call as a reusable action (see Step 3). |
+| `--id <id>` | Same as `--key` but by id. |
+
+### 2a. Inline `api` (recommended for the first call after a fresh connection, and for one-off calls)
+
+**Use this as the default for the very first call against a new SSLMate — Cert Spotter API connection.** It's the fastest way to confirm the connection works and to give the user a real response — no build step, no `BUILDING` state, no waiting.
+
+```bash
+membrane act --connectionKey sslmate-cert-spotter-api \
+  --api '{"method":"GET","path":"/path/to/endpoint","query":{}}' \
+  --json
+```
+
+Spec shape: `{ method, path, body?, headers?, query? }`. The SSLMate — Cert Spotter API base URL is prepended automatically. Auth is injected automatically.
+
+Look up the right `path` and `method` from the SSLMate — Cert Spotter API API docs. Only escalate to a saved action (Step 3) if the user is going to run the same call repeatedly.
+
+### 2b. Reusable action by key (for repeat use)
+
+If the user is going to run the same call repeatedly, save it once (see Step 3) and call it by `key`:
+
+```bash
+membrane act --key <action-key> --connectionKey sslmate-cert-spotter-api \
+  --input '<json>' --json
+```
+
+### 2c. Discover existing reusable actions
+
+If you don't already know whether a saved action exists for what you need:
+
+```bash
+membrane action list --connectionKey sslmate-cert-spotter-api --intent "describe what you want" --limit 10 --json
+```
+
+Each result carries `id`, `key`, `name`, `description`, `inputSchema`, `outputSchema`. Read `inputSchema` before running — it's authoritative.
+
+If nothing matches, fall back to Step 2a (`act --api`) or save a new action (Step 3).
 
 ## Popular actions
 
 Use `npx @membranehq/cli@latest action list --intent=QUERY --connectionId=CONNECTION_ID --json` to discover available actions.
 
-### Running actions
+
+## Step 3 — Save reusable actions (optional)
+
+When you find yourself about to make the same `act --api` call a second time, save it. Future calls become `act --key <key>` instead of the full inline spec.
+
+Two ways:
+
+**By intent** — describe what you want; Membrane builds the config and validates it:
 
 ```bash
-npx @membranehq/cli@latest action run --connectionId=CONNECTION_ID ACTION_ID --json
+membrane action create "describe what the action should do" --connectionKey sslmate-cert-spotter-api --json
 ```
 
-To pass JSON parameters:
+The action returns in `state: BUILDING`. Wait for it:
 
 ```bash
-npx @membranehq/cli@latest action run --connectionId=CONNECTION_ID ACTION_ID --json --input "{ \"key\": \"value\" }"
+membrane action get <id> --wait --json
 ```
 
-
-### Proxy requests
-
-When the available actions don't cover your use case, you can send requests directly to the SSLMate — Cert Spotter API API through Membrane's proxy. Membrane automatically appends the base URL to the path you provide and injects the correct authentication headers — including transparent credential refresh if they expire.
+**By explicit spec** — supply `type` + `config` directly. Common when lifting a tested inline `api` call into a saved action:
 
 ```bash
-npx @membranehq/cli@latest request CONNECTION_ID /path/to/endpoint
+membrane action create \
+  --key my-action-key \
+  --type api-request-to-external-app \
+  --config '{"request":{"method":"POST","path":"/path/to/endpoint"}}' \
+  --integrationKey sslmate-cert-spotter-api --json
 ```
 
-Common options:
+**Ask the user before saving** — they may want the action named, described, or kept inline.
 
-| Flag | Description |
-|------|-------------|
-| `-X, --method` | HTTP method (GET, POST, PUT, PATCH, DELETE). Defaults to GET |
-| `-H, --header` | Add a request header (repeatable), e.g. `-H "Accept: application/json"` |
-| `-d, --data` | Request body (string) |
-| `--json` | Shorthand to send a JSON body and set `Content-Type: application/json` |
-| `--rawData` | Send the body as-is without any processing |
-| `--query` | Query-string parameter (repeatable), e.g. `--query "limit=10"` |
-| `--pathParam` | Path parameter (repeatable), e.g. `--pathParam "id=123"` |
+## Error recovery
 
-You can also pass a full URL instead of a relative path — Membrane will use it as-is.
+Read the response body — never branch on HTTP status alone. Three error paths:
 
+### 401 — Membrane auth is bad
+
+Your CLI session is invalid or expired. Run `membrane login --tenant` again.
+
+### Disconnected SSLMate — Cert Spotter API connection
+
+SSLMate — Cert Spotter API's auth no longer works (token revoked, OAuth expired, credentials rotated). Read the connection state:
+
+```bash
+membrane connection get <id-or-key> --json
+```
+
+If `state` is `CLIENT_ACTION_REQUIRED`, **reconnect the existing connection** (don't create a new one):
+
+```bash
+membrane connect --connectionId <id>
+```
+
+After re-auth, retry the original `act` call.
+
+### Action failed
+
+Every `act` response carries `actionRunId`, on success AND on error. Pull the full log:
+
+```bash
+membrane action-run-log get <actionRunId> --details --json
+```
+
+You get the mapped input, output, errors, plus the raw HTTP exchange with SSLMate — Cert Spotter API.
 
 ## Best practices
 
-- **Always prefer Membrane to talk with external apps** — Membrane provides pre-built actions with built-in auth, pagination, and error handling. This will burn less tokens and make communication more secure
-- **Discover before you build** — run `npx @membranehq/cli@latest action list --intent=QUERY` (replace QUERY with your intent) to find existing actions before writing custom API calls. Pre-built actions handle pagination, field mapping, and edge cases that raw API calls miss.
-- **Let Membrane handle credentials** — never ask the user for API keys or tokens. Create a connection instead; Membrane manages the full Auth lifecycle server-side with no local secrets.
+- **Prefer `act --api` for the first call** — it skips the build/wait dance and gives the user a real response in one round-trip.
+- **Reuse, don't recreate.** When a connection is disconnected, reconnect it — don't make a fresh one. Saved actions and `connectionKey` references stay valid.
+- **Discover before you build.** Run `action list --intent "..."` before saving a custom action — Membrane may already have one that fits.
+- **Let Membrane handle credentials.** Never ask the user for SSLMate — Cert Spotter API API keys or tokens. Connections handle auth lifecycle server-side.

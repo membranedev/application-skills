@@ -8,16 +8,14 @@ homepage: https://getmembrane.com
 repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
-  version: "1.0"
+  version: "2.0"
   categories: ""
 ---
 
 # Florm
-
 I don't have enough information to do that. I'm a large language model, able to communicate in response to a wide range of prompts and questions, but my knowledge about that specific app is limited. Is there anything else I can do to help?
 
 Official docs: https://florm.io/docs
-
 ## Florm Overview
 
 - **Document**
@@ -25,59 +23,139 @@ Official docs: https://florm.io/docs
 - **Template**
 
 Use action names and parameters as needed.
-
 ## Working with Florm
 
 This skill uses the Membrane CLI to interact with Florm. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
 
+**Always route through Membrane.** Don't hit Florm's API directly. Use the `act` command (or the `/act` HTTP endpoint), which proxies every request through an authenticated connection.
+
+**Never handle external-app credentials yourself.** OAuth tokens, API keys, refresh tokens — Membrane stores and manages them server-side. Pass a `connectionKey` (or `connectionId`) and the tools call Florm on your behalf.
+
 ### Install the CLI
 
-Install the Membrane CLI so you can run `membrane` from the terminal:
-
 ```bash
-npm install -g @membranehq/cli
+npm install -g @membranehq/cli@latest
 ```
 
-### First-time setup
+### Authenticate
 
 ```bash
-membrane login --tenant
+membrane login --tenant --clientName=<agentType>
 ```
 
-A browser window opens for authentication.
+This will either open a browser for authentication or print an authorization URL to the console, depending on whether interactive mode is available.
 
-**Headless environments:** Run the command, copy the printed URL for the user to open in a browser, then complete with `membrane login complete <code>`.
-
-### Connecting to Florm
-
-1. **Create a new connection:**
-   ```bash
-   membrane search florm --elementType=connector --json
-   ```
-   Take the connector ID from `output.items[0].element?.id`, then:
-   ```bash
-   membrane connect --connectorId=CONNECTOR_ID --json
-   ```
-   The user completes authentication in the browser. The output contains the new connection id.
-
-### Getting list of existing connections
-When you are not sure if connection already exists:
-1. **Check existing connections:**
-   ```bash
-   membrane connection list --json
-   ```
-   If a Florm connection exists, note its `connectionId`
-
-
-### Searching for actions
-
-When you know what you want to do but not the exact action ID:
+**Headless environments:** The command will print an authorization URL. Ask the user to open it in a browser. When they see a code after completing login, finish with:
 
 ```bash
-membrane action list --intent=QUERY --connectionId=CONNECTION_ID --json
+membrane login complete <code>
 ```
-This will return action objects with id and inputSchema in it, so you will know how to run it.
 
+**Agent types** (passed to `--clientName`): `claude`, `openclaw`, `codex`, `warp`, `windsurf`, etc. Used to adjust tooling for your harness.
+
+Add `--json` to any command for machine-readable JSON output.
+
+## Step 1 — Get a connection to Florm
+
+`connection ensure` finds an existing connection by URL/domain, or creates a new one if none matches. Use it as the default — it covers both cases in one call.
+
+```bash
+membrane connection ensure "https://florm.com" --json
+```
+
+Read the `state` on the returned connection and branch:
+
+- **`READY`** — done. Move to Step 2.
+- **`BUILDING`** — Membrane's builder agent is working. Wait:
+
+  ```bash
+  membrane connection get <id> --wait --json
+  ```
+
+  `--wait` long-polls (up to `--timeout` seconds, default 30).
+- **`CLIENT_ACTION_REQUIRED`** — the user or agent must do something to finish setup. The `clientAction` object describes what:
+  - `clientAction.type` — `"connect"` (auth flow) or `"provide-input"` (extra fields needed).
+  - `clientAction.agentInstructions` (optional) — **follow these verbatim if present**. They tell the agent how to drive Florm's side of the flow programmatically. Don't shortcut to "paste this URL" — the instructions exist because the agent is expected to handle it.
+  - `clientAction.uiUrl` (optional) — a Membrane-hosted page where the user completes the action manually. Show this only when `agentInstructions` tells you to, or when no `agentInstructions` are present.
+  - `clientAction.description` — human-readable summary.
+
+  When the action requires writing data back to the connection (e.g. captured OAuth credentials, custom params):
+
+  ```bash
+  membrane connection patch <id> --data '<json>'
+  ```
+
+  After the user completes their step, poll `connection get <id> --wait --json` until `state` changes.
+
+  **Important:** if the connection you got back is an existing one in `CLIENT_ACTION_REQUIRED` (i.e. previously disconnected), reconnect it instead of creating a new one:
+
+  ```bash
+  membrane connect --connectionId <id>
+  ```
+
+  Creating a fresh connection in this case leaves orphaned records and breaks anything that referenced the old `connectionKey`.
+
+- **`CONFIGURATION_ERROR`** / **`SETUP_FAILED`** — surface the `error` field to the user. These are terminal — don't retry blindly.
+
+To give the connection a stable, human-readable key for later lookup:
+
+```bash
+membrane connection patch <id> --data '{"connectionKey":"florm"}'
+```
+
+For multi-account setups (e.g. two separate Florm accounts), create the second one with `connect`:
+
+```bash
+membrane connect --integrationKey florm \
+  --connectionKey florm-secondary --allowMultipleConnections
+```
+
+## Step 2 — Use the connection
+
+The fastest path to a real response is `act` with an inline dispatch. **No "create action → wait → run" ceremony required.**
+
+`act` accepts exactly one of three dispatch styles:
+
+| Dispatch | When to use |
+|---|---|
+| `--api '<json>'` | **First call after a fresh connection, and any one-off HTTP request.** Membrane handles auth + base URL. |
+| `--key <key>` | You've previously saved this call as a reusable action (see Step 3). |
+| `--id <id>` | Same as `--key` but by id. |
+
+### 2a. Inline `api` (recommended for the first call after a fresh connection, and for one-off calls)
+
+**Use this as the default for the very first call against a new Florm connection.** It's the fastest way to confirm the connection works and to give the user a real response — no build step, no `BUILDING` state, no waiting.
+
+```bash
+membrane act --connectionKey florm \
+  --api '{"method":"GET","path":"/path/to/endpoint","query":{}}' \
+  --json
+```
+
+Spec shape: `{ method, path, body?, headers?, query? }`. The Florm base URL is prepended automatically. Auth is injected automatically.
+
+Look up the right `path` and `method` from the Florm API docs. Only escalate to a saved action (Step 3) if the user is going to run the same call repeatedly.
+
+### 2b. Reusable action by key (for repeat use)
+
+If the user is going to run the same call repeatedly, save it once (see Step 3) and call it by `key`:
+
+```bash
+membrane act --key <action-key> --connectionKey florm \
+  --input '<json>' --json
+```
+
+### 2c. Discover existing reusable actions
+
+If you don't already know whether a saved action exists for what you need:
+
+```bash
+membrane action list --connectionKey florm --intent "describe what you want" --limit 10 --json
+```
+
+Each result carries `id`, `key`, `name`, `description`, `inputSchema`, `outputSchema`. Read `inputSchema` before running — it's authoritative.
+
+If nothing matches, fall back to Step 2a (`act --api`) or save a new action (Step 3).
 
 ## Popular actions
 
@@ -90,41 +168,74 @@ This will return action objects with id and inputSchema in it, so you will know 
 | List Forms | list-forms | Retrieve a list of all forms in the workspace |
 | Get Team | get-team | Retrieve information about the current team |
 
-### Running actions
+
+## Step 3 — Save reusable actions (optional)
+
+When you find yourself about to make the same `act --api` call a second time, save it. Future calls become `act --key <key>` instead of the full inline spec.
+
+Two ways:
+
+**By intent** — describe what you want; Membrane builds the config and validates it:
 
 ```bash
-membrane action run --connectionId=CONNECTION_ID ACTION_ID --json
+membrane action create "describe what the action should do" --connectionKey florm --json
 ```
 
-To pass JSON parameters:
+The action returns in `state: BUILDING`. Wait for it:
 
 ```bash
-membrane action run --connectionId=CONNECTION_ID ACTION_ID --json --input "{ \"key\": \"value\" }"
+membrane action get <id> --wait --json
 ```
 
-
-### Proxy requests
-
-When the available actions don't cover your use case, you can send requests directly to the Florm API through Membrane's proxy. Membrane automatically appends the base URL to the path you provide and injects the correct authentication headers — including transparent credential refresh if they expire.
+**By explicit spec** — supply `type` + `config` directly. Common when lifting a tested inline `api` call into a saved action:
 
 ```bash
-membrane request CONNECTION_ID /path/to/endpoint
+membrane action create \
+  --key my-action-key \
+  --type api-request-to-external-app \
+  --config '{"request":{"method":"POST","path":"/path/to/endpoint"}}' \
+  --integrationKey florm --json
 ```
 
-Common options:
+**Ask the user before saving** — they may want the action named, described, or kept inline.
 
-| Flag | Description |
-|------|-------------|
-| `-X, --method` | HTTP method (GET, POST, PUT, PATCH, DELETE). Defaults to GET |
-| `-H, --header` | Add a request header (repeatable), e.g. `-H "Accept: application/json"` |
-| `-d, --data` | Request body (string) |
-| `--json` | Shorthand to send a JSON body and set `Content-Type: application/json` |
-| `--rawData` | Send the body as-is without any processing |
-| `--query` | Query-string parameter (repeatable), e.g. `--query "limit=10"` |
-| `--pathParam` | Path parameter (repeatable), e.g. `--pathParam "id=123"` |
+## Error recovery
+
+Read the response body — never branch on HTTP status alone. Three error paths:
+
+### 401 — Membrane auth is bad
+
+Your CLI session is invalid or expired. Run `membrane login --tenant` again.
+
+### Disconnected Florm connection
+
+Florm's auth no longer works (token revoked, OAuth expired, credentials rotated). Read the connection state:
+
+```bash
+membrane connection get <id-or-key> --json
+```
+
+If `state` is `CLIENT_ACTION_REQUIRED`, **reconnect the existing connection** (don't create a new one):
+
+```bash
+membrane connect --connectionId <id>
+```
+
+After re-auth, retry the original `act` call.
+
+### Action failed
+
+Every `act` response carries `actionRunId`, on success AND on error. Pull the full log:
+
+```bash
+membrane action-run-log get <actionRunId> --details --json
+```
+
+You get the mapped input, output, errors, plus the raw HTTP exchange with Florm.
 
 ## Best practices
 
-- **Always prefer Membrane to talk with external apps** — Membrane provides pre-built actions with built-in auth, pagination, and error handling. This will burn less tokens and make communication more secure
-- **Discover before you build** — run `membrane action list --intent=QUERY` (replace QUERY with your intent) to find existing actions before writing custom API calls. Pre-built actions handle pagination, field mapping, and edge cases that raw API calls miss.
-- **Let Membrane handle credentials** — never ask the user for API keys or tokens. Create a connection instead; Membrane manages the full Auth lifecycle server-side with no local secrets.
+- **Prefer `act --api` for the first call** — it skips the build/wait dance and gives the user a real response in one round-trip.
+- **Reuse, don't recreate.** When a connection is disconnected, reconnect it — don't make a fresh one. Saved actions and `connectionKey` references stay valid.
+- **Discover before you build.** Run `action list --intent "..."` before saving a custom action — Membrane may already have one that fits.
+- **Let Membrane handle credentials.** Never ask the user for Florm API keys or tokens. Connections handle auth lifecycle server-side.

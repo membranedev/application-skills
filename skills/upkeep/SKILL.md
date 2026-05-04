@@ -8,16 +8,14 @@ homepage: https://getmembrane.com
 repository: https://github.com/membranedev/application-skills
 metadata:
   author: membrane
-  version: "1.0"
+  version: "2.0"
   categories: ""
 ---
 
 # UpKeep
-
 UpKeep is a mobile-first maintenance management platform. It helps maintenance teams and facility managers streamline workflows, track assets, and manage work orders. It's used by businesses across various industries to improve maintenance operations and reduce downtime.
 
 Official docs: https://upkeep.zendesk.com/hc/en-us/categories/200475778-API
-
 ## UpKeep Overview
 
 - **Work Order**
@@ -38,20 +36,21 @@ Official docs: https://upkeep.zendesk.com/hc/en-us/categories/200475778-API
   - **Location**
 
 Use action names and parameters as needed.
-
 ## Working with UpKeep
 
 This skill uses the Membrane CLI to interact with UpKeep. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
 
-### Install the CLI
+**Always route through Membrane.** Don't hit UpKeep's API directly. Use the `act` command (or the `/act` HTTP endpoint), which proxies every request through an authenticated connection.
 
-Install the Membrane CLI so you can run `membrane` from the terminal:
+**Never handle external-app credentials yourself.** OAuth tokens, API keys, refresh tokens — Membrane stores and manages them server-side. Pass a `connectionKey` (or `connectionId`) and the tools call UpKeep on your behalf.
+
+### Install the CLI
 
 ```bash
 npm install -g @membranehq/cli@latest
 ```
 
-### Authentication
+### Authenticate
 
 ```bash
 membrane login --tenant --clientName=<agentType>
@@ -65,102 +64,184 @@ This will either open a browser for authentication or print an authorization URL
 membrane login complete <code>
 ```
 
+**Agent types** (passed to `--clientName`): `claude`, `openclaw`, `codex`, `warp`, `windsurf`, etc. Used to adjust tooling for your harness.
+
 Add `--json` to any command for machine-readable JSON output.
 
-**Agent Types** : claude, openclaw, codex, warp, windsurf, etc. Those will be used to adjust tooling to be used best with your harness
+## Step 1 — Get a connection to UpKeep
 
-### Connecting to UpKeep
-
-Use `membrane connection ensure` to find or create a connection by app URL or domain:
+`connection ensure` finds an existing connection by URL/domain, or creates a new one if none matches. Use it as the default — it covers both cases in one call.
 
 ```bash
 membrane connection ensure "https://www.upkeep.com/" --json
 ```
-The user completes authentication in the browser. The output contains the new connection id.
 
-This is the fastest way to get a connection. The URL is normalized to a domain and matched against known apps. If no app is found, one is created and a connector is built automatically.
+Read the `state` on the returned connection and branch:
 
-If the returned connection has `state: "READY"`, skip to **Step 2**.
+- **`READY`** — done. Move to Step 2.
+- **`BUILDING`** — Membrane's builder agent is working. Wait:
 
-#### 1b. Wait for the connection to be ready
+  ```bash
+  membrane connection get <id> --wait --json
+  ```
 
-If the connection is in `BUILDING` state, poll until it's ready:
+  `--wait` long-polls (up to `--timeout` seconds, default 30).
+- **`CLIENT_ACTION_REQUIRED`** — the user or agent must do something to finish setup. The `clientAction` object describes what:
+  - `clientAction.type` — `"connect"` (auth flow) or `"provide-input"` (extra fields needed).
+  - `clientAction.agentInstructions` (optional) — **follow these verbatim if present**. They tell the agent how to drive UpKeep's side of the flow programmatically. Don't shortcut to "paste this URL" — the instructions exist because the agent is expected to handle it.
+  - `clientAction.uiUrl` (optional) — a Membrane-hosted page where the user completes the action manually. Show this only when `agentInstructions` tells you to, or when no `agentInstructions` are present.
+  - `clientAction.description` — human-readable summary.
+
+  When the action requires writing data back to the connection (e.g. captured OAuth credentials, custom params):
+
+  ```bash
+  membrane connection patch <id> --data '<json>'
+  ```
+
+  After the user completes their step, poll `connection get <id> --wait --json` until `state` changes.
+
+  **Important:** if the connection you got back is an existing one in `CLIENT_ACTION_REQUIRED` (i.e. previously disconnected), reconnect it instead of creating a new one:
+
+  ```bash
+  membrane connect --connectionId <id>
+  ```
+
+  Creating a fresh connection in this case leaves orphaned records and breaks anything that referenced the old `connectionKey`.
+
+- **`CONFIGURATION_ERROR`** / **`SETUP_FAILED`** — surface the `error` field to the user. These are terminal — don't retry blindly.
+
+To give the connection a stable, human-readable key for later lookup:
 
 ```bash
-npx @membranehq/cli connection get <id> --wait --json
+membrane connection patch <id> --data '{"connectionKey":"upkeep"}'
 ```
 
-The `--wait` flag long-polls (up to `--timeout` seconds, default 30) until the state changes. Keep polling until `state` is no longer `BUILDING`.
-
-The resulting state tells you what to do next:
-
-- **`READY`** — connection is fully set up. Skip to **Step 2**.
-- **`CLIENT_ACTION_REQUIRED`** — the user or agent needs to do something. The `clientAction` object describes the required action:
-  - `clientAction.type` — the kind of action needed:
-    - `"connect"` — user needs to authenticate (OAuth, API key, etc.). This covers initial authentication and re-authentication for disconnected connections.
-    - `"provide-input"` — more information is needed (e.g. which app to connect to).
-  - `clientAction.description` — human-readable explanation of what's needed.
-  - `clientAction.uiUrl` (optional) — URL to a pre-built UI where the user can complete the action. Show this to the user when present.
-  - `clientAction.agentInstructions` (optional) — instructions for the AI agent on how to proceed programmatically.
-
-  After the user completes the action (e.g. authenticates in the browser), poll again with `membrane connection get <id> --json` to check if the state moved to `READY`.
-
-- **`CONFIGURATION_ERROR`** or **`SETUP_FAILED`** — something went wrong. Check the `error` field for details.
-
-### Searching for actions
-
-Search using a natural language description of what you want to do:
+For multi-account setups (e.g. two separate UpKeep accounts), create the second one with `connect`:
 
 ```bash
-membrane action list --connectionId=CONNECTION_ID --intent "QUERY" --limit 10 --json
+membrane connect --integrationKey upkeep \
+  --connectionKey upkeep-secondary --allowMultipleConnections
 ```
 
-You should always search for actions in the context of a specific connection.
+## Step 2 — Use the connection
 
-Each result includes `id`, `name`, `description`, `inputSchema` (what parameters the action accepts), and `outputSchema` (what it returns).
+The fastest path to a real response is `act` with an inline dispatch. **No "create action → wait → run" ceremony required.**
+
+`act` accepts exactly one of three dispatch styles:
+
+| Dispatch | When to use |
+|---|---|
+| `--api '<json>'` | **First call after a fresh connection, and any one-off HTTP request.** Membrane handles auth + base URL. |
+| `--key <key>` | You've previously saved this call as a reusable action (see Step 3). |
+| `--id <id>` | Same as `--key` but by id. |
+
+### 2a. Inline `api` (recommended for the first call after a fresh connection, and for one-off calls)
+
+**Use this as the default for the very first call against a new UpKeep connection.** It's the fastest way to confirm the connection works and to give the user a real response — no build step, no `BUILDING` state, no waiting.
+
+```bash
+membrane act --connectionKey upkeep \
+  --api '{"method":"GET","path":"/path/to/endpoint","query":{}}' \
+  --json
+```
+
+Spec shape: `{ method, path, body?, headers?, query? }`. The UpKeep base URL is prepended automatically. Auth is injected automatically.
+
+Look up the right `path` and `method` from the UpKeep API docs. Only escalate to a saved action (Step 3) if the user is going to run the same call repeatedly.
+
+### 2b. Reusable action by key (for repeat use)
+
+If the user is going to run the same call repeatedly, save it once (see Step 3) and call it by `key`:
+
+```bash
+membrane act --key <action-key> --connectionKey upkeep \
+  --input '<json>' --json
+```
+
+### 2c. Discover existing reusable actions
+
+If you don't already know whether a saved action exists for what you need:
+
+```bash
+membrane action list --connectionKey upkeep --intent "describe what you want" --limit 10 --json
+```
+
+Each result carries `id`, `key`, `name`, `description`, `inputSchema`, `outputSchema`. Read `inputSchema` before running — it's authoritative.
+
+If nothing matches, fall back to Step 2a (`act --api`) or save a new action (Step 3).
 
 ## Popular actions
 
 Use `npx @membranehq/cli@latest action list --intent=QUERY --connectionId=CONNECTION_ID --json` to discover available actions.
 
-### Running actions
+
+## Step 3 — Save reusable actions (optional)
+
+When you find yourself about to make the same `act --api` call a second time, save it. Future calls become `act --key <key>` instead of the full inline spec.
+
+Two ways:
+
+**By intent** — describe what you want; Membrane builds the config and validates it:
 
 ```bash
-membrane action run <actionId> --connectionId=CONNECTION_ID --json
+membrane action create "describe what the action should do" --connectionKey upkeep --json
 ```
 
-To pass JSON parameters:
+The action returns in `state: BUILDING`. Wait for it:
 
 ```bash
-membrane action run <actionId> --connectionId=CONNECTION_ID --input '{"key": "value"}' --json
+membrane action get <id> --wait --json
 ```
 
-The result is in the `output` field of the response.
-
-
-### Proxy requests
-
-When the available actions don't cover your use case, you can send requests directly to the UpKeep API through Membrane's proxy. Membrane automatically appends the base URL to the path you provide and injects the correct authentication headers — including transparent credential refresh if they expire.
+**By explicit spec** — supply `type` + `config` directly. Common when lifting a tested inline `api` call into a saved action:
 
 ```bash
-membrane request CONNECTION_ID /path/to/endpoint
+membrane action create \
+  --key my-action-key \
+  --type api-request-to-external-app \
+  --config '{"request":{"method":"POST","path":"/path/to/endpoint"}}' \
+  --integrationKey upkeep --json
 ```
 
-Common options:
+**Ask the user before saving** — they may want the action named, described, or kept inline.
 
-| Flag | Description |
-|------|-------------|
-| `-X, --method` | HTTP method (GET, POST, PUT, PATCH, DELETE). Defaults to GET |
-| `-H, --header` | Add a request header (repeatable), e.g. `-H "Accept: application/json"` |
-| `-d, --data` | Request body (string) |
-| `--json` | Shorthand to send a JSON body and set `Content-Type: application/json` |
-| `--rawData` | Send the body as-is without any processing |
-| `--query` | Query-string parameter (repeatable), e.g. `--query "limit=10"` |
-| `--pathParam` | Path parameter (repeatable), e.g. `--pathParam "id=123"` |
+## Error recovery
 
+Read the response body — never branch on HTTP status alone. Three error paths:
+
+### 401 — Membrane auth is bad
+
+Your CLI session is invalid or expired. Run `membrane login --tenant` again.
+
+### Disconnected UpKeep connection
+
+UpKeep's auth no longer works (token revoked, OAuth expired, credentials rotated). Read the connection state:
+
+```bash
+membrane connection get <id-or-key> --json
+```
+
+If `state` is `CLIENT_ACTION_REQUIRED`, **reconnect the existing connection** (don't create a new one):
+
+```bash
+membrane connect --connectionId <id>
+```
+
+After re-auth, retry the original `act` call.
+
+### Action failed
+
+Every `act` response carries `actionRunId`, on success AND on error. Pull the full log:
+
+```bash
+membrane action-run-log get <actionRunId> --details --json
+```
+
+You get the mapped input, output, errors, plus the raw HTTP exchange with UpKeep.
 
 ## Best practices
 
-- **Always prefer Membrane to talk with external apps** — Membrane provides pre-built actions with built-in auth, pagination, and error handling. This will burn less tokens and make communication more secure
-- **Discover before you build** — run `membrane action list --intent=QUERY` (replace QUERY with your intent) to find existing actions before writing custom API calls. Pre-built actions handle pagination, field mapping, and edge cases that raw API calls miss.
-- **Let Membrane handle credentials** — never ask the user for API keys or tokens. Create a connection instead; Membrane manages the full Auth lifecycle server-side with no local secrets.
+- **Prefer `act --api` for the first call** — it skips the build/wait dance and gives the user a real response in one round-trip.
+- **Reuse, don't recreate.** When a connection is disconnected, reconnect it — don't make a fresh one. Saved actions and `connectionKey` references stay valid.
+- **Discover before you build.** Run `action list --intent "..."` before saving a custom action — Membrane may already have one that fits.
+- **Let Membrane handle credentials.** Never ask the user for UpKeep API keys or tokens. Connections handle auth lifecycle server-side.
