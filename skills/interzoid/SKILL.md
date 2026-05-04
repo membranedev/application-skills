@@ -46,7 +46,7 @@ Official docs: https://www.interzoid.com/apis
 Use action names and parameters as needed. The resource type (Global, IP, Email, Phone) determines which set of actions to use.
 ## Working with Interzoid
 
-This skill uses the [Membrane](https://getmembrane.com) CLI to interact with Interzoid. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
+This skill uses the Membrane CLI to interact with Interzoid. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
 
 **Always route through Membrane.** Don't hit Interzoid's API directly. Use the `act` command (or the `/act` HTTP endpoint), which proxies every request through an authenticated connection.
 
@@ -63,8 +63,6 @@ npm install -g @membranehq/cli@latest
 ```bash
 membrane login --tenant --clientName=<agentType>
 ```
-
-`--tenant` gets a tenant-scoped token (workspace + customer) so you don't need to pass `--workspaceKey` and `--tenantKey` on every subsequent command.
 
 This will either open a browser for authentication or print an authorization URL to the console, depending on whether interactive mode is available.
 
@@ -137,12 +135,11 @@ membrane connect --integrationKey interzoid \
 
 The fastest path to a real response is `act` with an inline dispatch. **No "create action → wait → run" ceremony required.**
 
-`act` accepts exactly one of four dispatch styles:
+`act` accepts exactly one of three dispatch styles:
 
 | Dispatch | When to use |
 |---|---|
 | `--api '<json>'` | **First call after a fresh connection, and any one-off HTTP request.** Membrane handles auth + base URL. |
-| `--code '<js>'` | You need a small piece of logic (loop, transform, multi-step). |
 | `--key <key>` | You've previously saved this call as a reusable action (see Step 3). |
 | `--id <id>` | Same as `--key` but by id. |
 
@@ -158,23 +155,9 @@ membrane act --connectionKey interzoid \
 
 Spec shape: `{ method, path, body?, headers?, query? }`. The Interzoid base URL is prepended automatically. Auth is injected automatically.
 
-Look up the right `path` and `method` from the Interzoid API docs (or the Popular actions table below). Only escalate to a saved action (Step 3) if the user is going to run the same call repeatedly.
+Look up the right `path` and `method` from the Interzoid API docs. Only escalate to a saved action (Step 3) if the user is going to run the same call repeatedly.
 
-### 2b. Inline `code` (when you need logic, not just an HTTP call)
-
-```bash
-membrane act --connectionKey interzoid \
-  --code 'module.exports = async ({ input, membrane }) => {
-    // Use membrane.api({ method, path, ... }) for authenticated calls
-    const res = await membrane.api({ method: "GET", path: "/path/to/endpoint" })
-    return res
-  }' \
-  --input '{}' --json
-```
-
-The function receives `{ input, membrane, connection, integration }`. Use `membrane.api(...)` inside it for authenticated calls. Whatever you return becomes the response `output`.
-
-### 2c. Reusable action by key (for repeat use)
+### 2b. Reusable action by key (for repeat use)
 
 If the user is going to run the same call repeatedly, save it once (see Step 3) and call it by `key`:
 
@@ -183,7 +166,7 @@ membrane act --key <action-key> --connectionKey interzoid \
   --input '<json>' --json
 ```
 
-### 2d. Discover existing reusable actions
+### 2c. Discover existing reusable actions
 
 If you don't already know whether a saved action exists for what you need:
 
@@ -213,15 +196,6 @@ If nothing matches, fall back to Step 2a (`act --api`) or save a new action (Ste
 | Standardize State Abbreviation | standardize-state-abbreviation | Standardizes US state and Canadian province names into full standard names and two-letter abbreviations. |
 | Standardize City Name | standardize-city-name | Standardizes city names (US and international) to their proper full names using AI algorithms. |
 
-### Running an action from the table above
-
-Use the action's `key` (column above) with `act --key`:
-
-```bash
-membrane act --key <action-key> --connectionKey interzoid --input '<json>' --json
-```
-
-Provide `--input` matching the action's `inputSchema` (read it via `action get <key> --json`). The result is in the `output` field of the response.
 
 ## Step 3 — Save reusable actions (optional)
 

@@ -23,7 +23,7 @@ Official docs: https://developer.peopledatalabs.com/docs/api/
 - **Bulk Enrichment Job**
 ## Working with People Data Labs
 
-This skill uses the [Membrane](https://getmembrane.com) CLI to interact with People Data Labs. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
+This skill uses the Membrane CLI to interact with People Data Labs. Membrane handles authentication and credentials refresh automatically — so you can focus on the integration logic rather than auth plumbing.
 
 **Always route through Membrane.** Don't hit People Data Labs's API directly. Use the `act` command (or the `/act` HTTP endpoint), which proxies every request through an authenticated connection.
 
@@ -40,8 +40,6 @@ npm install -g @membranehq/cli@latest
 ```bash
 membrane login --tenant --clientName=<agentType>
 ```
-
-`--tenant` gets a tenant-scoped token (workspace + customer) so you don't need to pass `--workspaceKey` and `--tenantKey` on every subsequent command.
 
 This will either open a browser for authentication or print an authorization URL to the console, depending on whether interactive mode is available.
 
@@ -114,12 +112,11 @@ membrane connect --integrationKey people-data-labs \
 
 The fastest path to a real response is `act` with an inline dispatch. **No "create action → wait → run" ceremony required.**
 
-`act` accepts exactly one of four dispatch styles:
+`act` accepts exactly one of three dispatch styles:
 
 | Dispatch | When to use |
 |---|---|
 | `--api '<json>'` | **First call after a fresh connection, and any one-off HTTP request.** Membrane handles auth + base URL. |
-| `--code '<js>'` | You need a small piece of logic (loop, transform, multi-step). |
 | `--key <key>` | You've previously saved this call as a reusable action (see Step 3). |
 | `--id <id>` | Same as `--key` but by id. |
 
@@ -135,23 +132,9 @@ membrane act --connectionKey people-data-labs \
 
 Spec shape: `{ method, path, body?, headers?, query? }`. The People Data Labs base URL is prepended automatically. Auth is injected automatically.
 
-Look up the right `path` and `method` from the People Data Labs API docs (or the Popular actions table below). Only escalate to a saved action (Step 3) if the user is going to run the same call repeatedly.
+Look up the right `path` and `method` from the People Data Labs API docs. Only escalate to a saved action (Step 3) if the user is going to run the same call repeatedly.
 
-### 2b. Inline `code` (when you need logic, not just an HTTP call)
-
-```bash
-membrane act --connectionKey people-data-labs \
-  --code 'module.exports = async ({ input, membrane }) => {
-    // Use membrane.api({ method, path, ... }) for authenticated calls
-    const res = await membrane.api({ method: "GET", path: "/path/to/endpoint" })
-    return res
-  }' \
-  --input '{}' --json
-```
-
-The function receives `{ input, membrane, connection, integration }`. Use `membrane.api(...)` inside it for authenticated calls. Whatever you return becomes the response `output`.
-
-### 2c. Reusable action by key (for repeat use)
+### 2b. Reusable action by key (for repeat use)
 
 If the user is going to run the same call repeatedly, save it once (see Step 3) and call it by `key`:
 
@@ -160,7 +143,7 @@ membrane act --key <action-key> --connectionKey people-data-labs \
   --input '<json>' --json
 ```
 
-### 2d. Discover existing reusable actions
+### 2c. Discover existing reusable actions
 
 If you don't already know whether a saved action exists for what you need:
 
@@ -190,15 +173,6 @@ If nothing matches, fall back to Step 2a (`act --api`) or save a new action (Ste
 | Search People | search-people | Search for people using Elasticsearch query or SQL syntax. |
 | Enrich Person | enrich-person | Enrich a person profile using various identifying information such as email, phone, name, company, LinkedIn profile, ... |
 
-### Running an action from the table above
-
-Use the action's `key` (column above) with `act --key`:
-
-```bash
-membrane act --key <action-key> --connectionKey people-data-labs --input '<json>' --json
-```
-
-Provide `--input` matching the action's `inputSchema` (read it via `action get <key> --json`). The result is in the `output` field of the response.
 
 ## Step 3 — Save reusable actions (optional)
 
