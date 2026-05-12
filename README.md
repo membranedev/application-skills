@@ -7,7 +7,7 @@
     </picture>
   </a>
 
-  <h1>3,000+ Integration Skills by <a hred="https://getmembrane.com">Membrane</a></h1>
+  <h1>3,000+ Integration Skills by <a href="https://getmembrane.com">Membrane</a></h1>
 
   <p><strong>Give your AI agent  skills to connect with Gmail, Slack, HubSpot, Salesforce, GitHub, and 3,000+ other apps.</strong></p>
 
