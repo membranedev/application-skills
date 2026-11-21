@@ -16,7 +16,7 @@ metadata:
 
 Gleap is a feedback and bug reporting tool for web and mobile apps. It's used by product managers, QA engineers, and customer support teams to collect user feedback, track bugs, and improve app quality.
 
-Official docs: https://developers.gleap.io/
+Official docs: https://docs.gleap.ai/
 
 ## Gleap Overview
 
